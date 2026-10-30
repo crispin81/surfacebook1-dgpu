@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "id": "chriscork.dgpu",
+  "name": "Surface Book dGPU",
+  "version": "1.0.0",
+  "author": "Chris Cork",
+  "license": "GPL-2.0-or-later",
+  "description": "Surface Book 1 dGPU status in the bar, with an on/off switch in a popup.",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "Panel.qml"
+  },
+  "barWidget": {
+    "displayName": "dGPU",
+    "description": "Show whether the Surface Book dGPU is powered and switch it on or off.",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

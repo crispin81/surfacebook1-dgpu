@@ -8,7 +8,8 @@ linux-surface kernel**.
   shut it down completely, mid-session.
 - **Detach safety**: while the dGPU is on, pressing the detach button powers it
   off automatically before you lift the screen.
-- Optional status/toggle widget for the [Omarchy](https://omarchy.org) bar.
+- Optional [Omarchy](https://omarchy.org) bar widget with an on/off switch
+  (plus a plain Waybar-style status script).
 
 > **Experimental.** This pokes firmware methods and PCIe root port registers.
 > It works reliably on the machine it was developed on, but during
@@ -130,21 +131,27 @@ sudo chmod 440 /etc/sudoers.d/dgpu && sudo visudo -c
 
 ### Omarchy bar widget (optional)
 
+A bar widget showing **󰢮 ON** (highlighted) or **󰢮 off**. Clicking it opens a
+popup with the dGPU's state, power draw and temperature and an on/off
+switch, so a stray click on the bar can't power it off. Needs the sudoers
+rule above.
+
 ```sh
-mkdir -p ~/.config/omarchy/bar/scripts
-cp extras/omarchy-bar/dgpu-* ~/.config/omarchy/bar/scripts/
+cp -r extras/omarchy-plugin/chriscork.dgpu ~/.config/omarchy/plugins/
+omarchy-shell shell rescanPlugins
+omarchy plugin enable chriscork.dgpu right
 ```
 
-Then add this to `bar.layout.right` in `~/.config/omarchy/shell.json`:
+### Waybar / command widget (optional)
+
+`extras/waybar-command/` has a status script that prints Waybar-style JSON and
+a click-to-toggle script (no confirmation). For a Waybar custom module, or an
+Omarchy `"type": "command"` bar entry:
 
 ```json
 { "id": "dgpu", "type": "command", "exec": "~/.config/omarchy/bar/scripts/dgpu-status",
   "interval": 3, "tooltip": "dGPU", "onClick": "~/.config/omarchy/bar/scripts/dgpu-toggle" }
 ```
-
-It shows **󰢮 ON** (highlighted) or **󰢮 off**; clicking toggles. Needs the
-sudoers rule above. The scripts print Waybar-style JSON, so they should also
-work as a Waybar custom module.
 
 ## Troubleshooting
 
