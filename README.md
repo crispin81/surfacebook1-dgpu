@@ -98,16 +98,22 @@ the embedded controller, and nothing signals the OS. If the dGPU is powered
 when the base comes off, apps using it crash and the NVIDIA driver may hang.
 
 While the dGPU is on, `dgpu-detach-watch` polls the batteries twice a second
-and runs `dgpu off` when it sees the latch open:
+and runs `dgpu off` when it sees the latch open. Once the latch opens, the base
+stops powering the screen, with or without the charger (which plugs into the
+base):
 
-- **On battery:** the screen battery (`BAT1`) suddenly carries the load
-  (about 0.08 W while docked, several W once the latch opens).
-- **On the charger** (which plugs into the base): the adapter goes offline
-  while the base battery is still not discharging.
+- the screen battery (`BAT1`) starts discharging under the full load: several
+  W, against about 0.08 W while docked or after simply unplugging the charger;
+- the base battery (`BAT2`) may stop reporting a status at all.
+
+Either condition has to hold for two samples in a row. Plugging and
+unplugging the charger doesn't trigger it. Detection takes about half a
+second on battery and up to about 4 seconds on the charger, so **wait for the
+"dGPU powered off" notification before lifting the screen**.
 
 If the dGPU is still in use, it sends a desktop notification instead of
 powering off. Close the app before lifting the screen. The watcher only runs
-while the dGPU is on. The charger case is less tested than the battery case.
+while the dGPU is on.
 
 After reattaching, run `dgpu on` again when you want the dGPU back.
 
