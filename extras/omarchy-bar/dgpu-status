@@ -1,0 +1,8 @@
+#!/bin/bash
+# Omarchy bar status for the Surface Book 1 dGPU (see dgpu).
+if [[ -e /sys/bus/pci/devices/0000:01:00.0 ]]; then
+  info=$(nvidia-smi --query-gpu=pstate,power.draw,temperature.gpu --format=csv,noheader 2>/dev/null)
+  printf '{"text":"󰢮 ON","tooltip":"dGPU on%s\\nClick to power off","class":"active"}\n' "${info:+ — $info}"
+else
+  printf '{"text":"󰢮 off","tooltip":"dGPU off\\nClick to power on","class":"inactive"}\n'
+fi

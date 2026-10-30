@@ -1,0 +1,6 @@
+[Unit]
+Description=Power off Surface Book dGPU when the detach latch opens
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/dgpu-detach-watch

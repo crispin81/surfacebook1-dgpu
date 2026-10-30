@@ -1,0 +1,48 @@
+#!/bin/bash
+# Power the Surface Book 1 NVIDIA dGPU on and off.
+# Needs the surfacebook1_dgpu_switch module from this repo.
+# The firmware boots with the dGPU off, and Maxwell can't runtime-suspend
+# under the proprietary driver, so switch it off yourself when you're done.
+set -euo pipefail
+
+SW=/sys/bus/platform/devices/MSHW0041:00/dgpu_power
+GPU=/sys/bus/pci/devices/0000:01:00.0
+
+[[ $EUID -eq 0 ]] || exec sudo "$0" "$@"
+
+if [[ ! -e $SW ]]; then
+  modprobe surfacebook1_dgpu_switch 2>/dev/null || true
+  [[ -e $SW ]] || { echo "No $SW: is the surfacebook1_dgpu_switch module installed?" >&2; exit 1; }
+fi
+
+case "${1:-status}" in
+  on)
+    echo 1 > "$SW"
+    for _ in {1..10}; do
+      sleep 1
+      echo 1 > /sys/bus/pci/rescan
+      [[ -e $GPU ]] && break
+    done
+    [[ -e $GPU ]] || { echo "dGPU powered but not on the PCI bus; check dmesg." >&2; exit 1; }
+    modprobe nvidia_drm
+    systemctl start --no-block dgpu-detach-watch.service 2>/dev/null || true
+    nvidia-smi -L
+    ;;
+  off)
+    if users=$(fuser /dev/nvidia* 2>/dev/null) && [[ -n $users ]]; then
+      echo "dGPU still in use by PIDs:$users" >&2; exit 1
+    fi
+    modprobe -r nvidia_drm nvidia_modeset nvidia_uvm nvidia 2>/dev/null || true
+    for f in /sys/bus/pci/devices/0000:01:00.*; do
+      [[ -e $f/remove ]] && echo 1 > "$f/remove"
+    done
+    echo 0 > "$SW"
+    echo "dGPU off"
+    ;;
+  status)
+    [[ -e $GPU ]] && echo "on" || echo "off"
+    ;;
+  *)
+    echo "usage: dgpu on|off|status" >&2; exit 2
+    ;;
+esac

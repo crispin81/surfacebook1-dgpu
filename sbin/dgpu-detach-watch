@@ -1,0 +1,48 @@
+#!/bin/bash
+# Run `dgpu off` when the Surface Book 1 detach latch opens.
+# Linux gets no detach event on the SB1, so watch for its side effects:
+#  - on battery: the clipboard battery (BAT1) suddenly carries the load
+#    (~0.08W while docked, several W once the latch opens; BAT2 keeps
+#    feeding the dGPU in the base, so it doesn't drop to idle)
+#  - on charger (which is in the base): ADP1 goes offline while BAT2 is
+#    still not discharging
+# Exits once the dGPU is gone. Started by `dgpu on`.
+GPU=/sys/bus/pci/devices/0000:01:00.0
+PS=/sys/class/power_supply
+
+# Notify every logged-in user with a session bus.
+notify() {
+  local bus uid
+  for bus in /run/user/*/bus; do
+    [[ -S $bus ]] || continue
+    uid=${bus#/run/user/}; uid=${uid%/bus}
+    runuser -u "$(id -nu "$uid")" -- env DBUS_SESSION_BUS_ADDRESS="unix:path=$bus" \
+      notify-send -u critical -a dgpu "$@" || true
+  done
+}
+
+prev_online=$(cat $PS/ADP1/online)
+while [[ -e $GPU ]]; do
+  sleep 0.5
+  online=$(cat $PS/ADP1/online)
+  bat1=$(cat $PS/BAT1/power_now 2>/dev/null || echo 0)
+  bat2=$(cat $PS/BAT2/power_now 2>/dev/null || echo 0)
+  bat2_status=$(cat $PS/BAT2/status)
+
+  trigger=
+  if [[ $prev_online == 1 && $online == 0 && $bat2_status != Discharging ]]; then
+    trigger="charger dropped while base still charging"
+  elif [[ $online == 0 ]] && (( bat1 > 1500000 )); then
+    trigger="screen battery took over (BAT1=${bat1}uW BAT2=${bat2}uW)"
+  fi
+  prev_online=$online
+
+  [[ -n $trigger ]] || continue
+  logger -t dgpu-detach-watch "detach detected: $trigger"
+  if /usr/local/bin/dgpu off >/dev/null; then
+    notify "dGPU powered off" "Detach detected - safe to lift the screen."
+  else
+    notify "dGPU still in use!" "Close apps using the NVIDIA GPU before detaching."
+    sleep 5
+  fi
+done
