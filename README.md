@@ -61,7 +61,7 @@ Requirements: `dkms`, kernel headers for your kernel, and the NVIDIA 580xx
 driver (e.g. `nvidia-580xx-dkms` + `nvidia-580xx-utils` on Arch).
 
 ```sh
-git clone https://github.com/<you>/surfacebook1-dgpu
+git clone https://github.com/crispin81/surfacebook1-dgpu
 cd surfacebook1-dgpu
 sudo ./install.sh
 dgpu on    # powers on, loads nvidia, prints the GPU
