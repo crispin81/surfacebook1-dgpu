@@ -70,7 +70,8 @@ dgpu off
 
 `install.sh` builds the module with DKMS (rebuilt automatically on kernel
 updates) and installs `/usr/local/bin/dgpu`,
-`/usr/local/sbin/dgpu-detach-watch` and its systemd unit.
+`/usr/local/sbin/dgpu-detach-watch` and its systemd unit, and enables
+`sb1-dock-thermal` (see below).
 `./uninstall.sh` removes everything.
 
 If you already have older dGPU scripts or services (e.g. something that
@@ -117,6 +118,29 @@ powering off. Close the app before lifting the screen. The watcher only runs
 while the dGPU is on.
 
 After reattaching, run `dgpu on` again when you want the dGPU back.
+
+### No skin-temperature throttling while docked
+
+With `thermald --adaptive` (the Arch default), thermald applies the
+firmware's skin-temperature limits: trip points of 54-56 °C on the
+clipboard's `TZ02`/`TZ03` sensors. Under sustained load, such as streaming
+video for 20 minutes, the clipboard reaches them and thermald cuts the CPU's
+power, even with the base attached and the machine sitting on a desk.
+
+`sb1-dock-thermal` stops thermald while the base is attached and starts it
+again when the latch opens, using the same battery test as
+`dgpu-detach-watch`. It switches the limits back on after 2 seconds and off
+only after 10 seconds of looking docked. Stopping the service starts thermald
+again. The CPU's own throttling near its maximum temperature still applies
+when thermald is off.
+
+`install.sh` enables it, so it runs from boot. To keep the firmware limits
+all the time instead:
+
+```sh
+sudo systemctl disable --now sb1-dock-thermal   # thermald starts again
+journalctl -t sb1-dock-thermal                  # each switch is logged
+```
 
 ### Passwordless toggle (optional)
 

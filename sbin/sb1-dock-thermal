@@ -1,0 +1,45 @@
+#!/bin/bash
+# Stop thermald while the Surface Book 1 is docked, start it when detached.
+# thermald --adaptive applies the firmware's skin-temperature limits (trip
+# points of 54-56C on TZ02/TZ03), which throttle the clipboard CPU after
+# ~20 min of sustained load even with the base attached. Those limits exist
+# so the clipboard stays comfortable to hold, so keep them whenever it might
+# be in your hands. The CPU's own throttling at TjMax still applies either way.
+# Detach detection is the same as dgpu-detach-watch: the clipboard battery
+# (BAT1) discharging under load, or the base battery (BAT2) not reporting.
+# Switch to "detached" after 2 samples, back to "docked" only after 10.
+# Runs for as long as the service does; thermald is restarted when it stops.
+PS=/sys/class/power_supply
+BAT1_DETACHED_UW=1500000
+
+state=detached
+hits=0
+systemctl start thermald
+
+while sleep 1; do
+  bat1=$(cat $PS/BAT1/power_now 2>/dev/null || echo 0)
+  bat1_status=$(cat $PS/BAT1/status 2>/dev/null)
+  bat2_status=$(cat $PS/BAT2/status 2>/dev/null)
+
+  if { [[ $bat1_status == Discharging ]] && (( bat1 > BAT1_DETACHED_UW )); } ||
+     [[ -z $bat2_status ]]; then
+    now=detached
+  else
+    now=docked
+  fi
+
+  if [[ $now == "$state" ]]; then hits=0; continue; fi
+  hits=$((hits + 1))
+  if [[ $now == detached ]]; then (( hits >= 2 )) || continue
+  else (( hits >= 10 )) || continue; fi
+
+  state=$now
+  hits=0
+  if [[ $state == docked ]]; then
+    systemctl stop thermald
+    logger -t sb1-dock-thermal "docked: thermald stopped (skin limits off)"
+  else
+    systemctl start thermald
+    logger -t sb1-dock-thermal "detached: thermald started (skin limits on)"
+  fi
+done

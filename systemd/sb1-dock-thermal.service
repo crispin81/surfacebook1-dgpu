@@ -1,0 +1,13 @@
+[Unit]
+Description=Stop thermald while the Surface Book base is attached
+After=thermald.service
+ConditionPathExists=/usr/bin/thermald
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/sb1-dock-thermal
+ExecStopPost=/usr/bin/systemctl start --no-block thermald
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

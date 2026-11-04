@@ -1,5 +1,6 @@
 #!/bin/bash
-# Install surfacebook1-dgpu: DKMS module, dgpu command, detach watcher.
+# Install surfacebook1-dgpu: DKMS module, dgpu command, detach watcher,
+# docked thermal watcher.
 set -euo pipefail
 cd "$(dirname "$0")"
 [[ $EUID -eq 0 ]] || exec sudo "$0" "$@"
@@ -27,7 +28,10 @@ modprobe surfacebook1_dgpu_switch
 install -Dm755 bin/dgpu /usr/local/bin/dgpu
 install -Dm755 sbin/dgpu-detach-watch /usr/local/sbin/dgpu-detach-watch
 install -Dm644 systemd/dgpu-detach-watch.service /etc/systemd/system/dgpu-detach-watch.service
+install -Dm755 sbin/sb1-dock-thermal /usr/local/sbin/sb1-dock-thermal
+install -Dm644 systemd/sb1-dock-thermal.service /etc/systemd/system/sb1-dock-thermal.service
 systemctl daemon-reload
+systemctl enable --now sb1-dock-thermal.service
 
 echo
 echo "Installed surfacebook1-dgpu $VERSION. Try: dgpu on && dgpu off"
