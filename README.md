@@ -104,14 +104,24 @@ and runs `dgpu off` when it sees the latch open. Once the latch opens, the base
 stops powering the screen, with or without the charger (which plugs into the
 base):
 
-- the screen battery (`BAT1`) starts discharging under the full load: several
-  W, against about 0.08 W while docked or after simply unplugging the charger;
-- the base battery (`BAT2`) may stop reporting a status at all.
+- **The screen battery (`BAT1`) carries at least twice the base battery's
+  (`BAT2`) load.** Docked on battery, both share the load but the base always
+  carries more (at most 0.9 times as much on the screen side, measured under
+  a 22 W load). Latched open, the base battery only feeds the base itself
+  (about 2.5–3 W with the dGPU on) and the screen battery takes over the
+  rest, 2–4 times as much. The screen battery's load on its own isn't enough:
+  on battery it often carries several watts while docked.
+- With the charger plugged in and the base battery charging, the screen
+  battery discharging at all (held for 1.5 seconds, since a real unplug looks
+  like that for about a second).
+- The base battery may stop reporting a status at all.
 
-Either condition has to hold for two samples in a row. Plugging and
-unplugging the charger doesn't trigger it. Detection takes about half a
-second on battery and up to about 4 seconds on the charger, so **wait for the
-"dGPU powered off" notification before lifting the screen**.
+Plugging and unplugging the charger doesn't trigger it, and nor does a heavy
+load on battery. Detection takes about half a second, up to 2 seconds on the
+charger, so **wait for the "dGPU powered off" notification before lifting the
+screen**. If the base battery is almost empty, the firmware may shift the load
+to the screen battery while docked, which would look like a detach: an idle
+dGPU then gets switched off.
 
 If the dGPU is still in use, it sends a desktop notification instead of
 powering off. Close the app before lifting the screen. The watcher only runs

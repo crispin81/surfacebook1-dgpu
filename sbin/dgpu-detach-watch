@@ -2,18 +2,25 @@
 # Run `dgpu off` when the Surface Book 1 detach latch opens.
 # Linux gets no detach event on the SB1, so watch for its side effects. Once
 # the latch opens, the base stops powering the clipboard, with or without
-# the charger (which plugs into the base):
-#  - the clipboard battery (BAT1) discharges under the full load: several W,
-#    against ~0.08W while docked or after simply unplugging the charger
-#    (the base battery takes over then). power_now is unsigned, so BAT1 must
-#    also report Discharging: plugging the charger in charges it at a
-#    similar rate.
-#  - the base battery (BAT2) may stop reporting a status at all.
-# Each condition must hold for two samples in a row. Exits once the dGPU is
-# gone. Started by `dgpu on`.
+# the charger (which plugs into the base), and the clipboard battery (BAT1)
+# takes over the clipboard's whole load:
+#  - on battery: docked, both batteries share the load but the base battery
+#    (BAT2) always carries more (BAT1/BAT2 at most ~0.9 under a ~22W load).
+#    Latched open, BAT2 only feeds the base itself (the dGPU, ~2.5-3W) and
+#    BAT1 carries 2-4 times as much. So: BAT1 discharging at twice BAT2.
+#    BAT1's load alone is no good: under load on battery it carries several
+#    W while docked too.
+#  - on the charger: BAT2 charges, so there is nothing to compare; BAT1
+#    discharging at all means the base stopped powering it. A real unplug
+#    looks the same for about a second (BAT2 reports Charging a little
+#    after BAT1 switches), so this one must hold for longer.
+#  - the base battery may stop reporting a status at all.
+# power_now is unsigned, so BAT1 must also report Discharging: plugging the
+# charger in charges it at a similar rate. Exits once the dGPU is gone.
+# Started by `dgpu on`.
 GPU=/sys/bus/pci/devices/0000:01:00.0
 PS=/sys/class/power_supply
-BAT1_DETACHED_UW=1500000
+BAT1_MIN_UW=1500000
 
 # Notify every logged-in user with a session bus.
 notify() {
@@ -30,18 +37,25 @@ hits=0
 while [[ -e $GPU ]]; do
   sleep 0.5
   bat1=$(cat $PS/BAT1/power_now 2>/dev/null || echo 0)
+  bat2=$(cat $PS/BAT2/power_now 2>/dev/null || echo 0)
   bat1_status=$(cat $PS/BAT1/status 2>/dev/null)
   bat2_status=$(cat $PS/BAT2/status 2>/dev/null)
 
-  reason=
-  if [[ $bat1_status == Discharging ]] && (( bat1 > BAT1_DETACHED_UW )); then
-    reason="screen battery carrying the load (BAT1=${bat1}uW)"
-  elif [[ -z $bat2_status ]]; then
+  # Samples in a row (0.5s apart) each reason needs
+  reason= need=2
+  if [[ -z $bat2_status ]]; then
     reason="base battery stopped reporting"
+  elif [[ $bat1_status == Discharging ]] && (( bat1 > BAT1_MIN_UW )); then
+    if [[ $bat2_status != Discharging ]]; then
+      reason="screen battery discharging while the base charges (BAT1=${bat1}uW)"
+      need=3
+    elif (( bat1 >= 2 * bat2 )); then
+      reason="screen battery carrying the load (BAT1=${bat1}uW BAT2=${bat2}uW)"
+    fi
   fi
 
   if [[ -n $reason ]]; then hits=$((hits + 1)); else hits=0; fi
-  (( hits >= 2 )) || continue
+  (( hits >= need )) || continue
 
   logger -t dgpu-detach-watch "detach detected: $reason"
   if /usr/local/bin/dgpu off >/dev/null; then
