@@ -10,6 +10,8 @@ linux-surface kernel**.
   off automatically before you lift the screen.
 - Optional [Omarchy](https://omarchy.org) bar widget with an on/off switch
   (plus a plain Waybar-style status script).
+- Optional: the **front camera as an ordinary webcam** for OBS, browsers and
+  video calls (see [below](#front-camera-as-a-webcam-optional)).
 
 > **Experimental.** This pokes firmware methods and PCIe root port registers.
 > It works reliably on the machine it was developed on, but during
@@ -151,6 +153,38 @@ all the time instead:
 sudo systemctl disable --now sb1-dock-thermal   # thermald starts again
 journalctl -t sb1-dock-thermal                  # each switch is logged
 ```
+
+### Front camera as a webcam (optional)
+
+The Surface Book's cameras aren't USB webcams: they are raw sensors behind
+Intel's IPU3, which only [libcamera](https://libcamera.org) can drive. Apps
+that expect an ordinary webcam see a list of `ipu3-cio2` / `ipu3-imgu`
+devices that show nothing but green. OBS's "Video Capture Device (PipeWire)"
+source can reach libcamera, but it crashed or showed green with this camera's
+NV12 output (OBS 32.2).
+
+`webcam/` turns the front camera into an ordinary virtual webcam, **"Surface
+Front Camera"** (`/dev/video20`, YUYV 4:2:2, 1280x720 at 30 fps), with
+[v4l2-relayd](https://gitlab.com/vicamo/v4l2-relayd) feeding a v4l2loopback
+device from libcamera. It runs **on demand**: the real camera, and its light,
+switch on only while an app has the virtual camera open. The first second or
+two after an app opens it is blank or green while the camera starts.
+
+Tested on the linux-surface kernel (7.2.11), which has all three camera
+drivers (`ov5693` front, `ov8865` rear, `ov7251` infrared).
+
+```sh
+sudo pacman -S --needed libcamera libcamera-ipa gst-plugin-libcamera gst-plugins-good v4l2loopback-dkms
+yay -S v4l2-relayd            # AUR
+sudo ./webcam/install.sh
+```
+
+Then pick "Surface Front Camera" in the app: in OBS, a **Video Capture Device
+(V4L2)** source with YUYV 4:2:2 at 1280x720. Several apps can use it at once.
+Don't pick "Built-in Front Camera" (the PipeWire/libcamera entry): while the
+virtual webcam is in use, the relay holds the real camera. OBS's V4L2 source
+logs "select timed out" many times a second while it streams; that's
+harmless. `uninstall.sh` removes the webcam setup too.
 
 ### Passwordless toggle (optional)
 

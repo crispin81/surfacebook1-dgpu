@@ -1,0 +1,27 @@
+[Unit]
+Description=Surface Book front camera as a virtual webcam (on demand)
+Wants=modprobe@v4l2loopback.service
+After=modprobe@v4l2loopback.service systemd-logind.service
+
+[Service]
+Type=simple
+# The camera ID starts with a backslash: systemd turns \\\\ into \\, which
+# GStreamer's parser turns into \.
+ExecStart=/usr/bin/v4l2-relayd \
+  -i "libcamerasrc camera-name=\\\\_SB_.PCI0.I2C2.CAMF ! video/x-raw,format=NV12,width=1280,height=720,framerate=30/1 ! videoconvert" \
+  -o "appsrc name=appsrc caps=video/x-raw,format=YUY2,width=1280,height=720,framerate=30/1 ! videoconvert ! v4l2sink name=v4l2sink device=/dev/video20"
+Restart=always
+RestartSec=2
+# Sandboxing, as in v4l2-relayd's own unit
+PrivateNetwork=yes
+PrivateTmp=yes
+InaccessibleDirectories=/home
+ReadOnlyDirectories=/etc /sys
+CapabilityBoundingSet=
+DeviceAllow=char-drm
+DeviceAllow=char-media
+DeviceAllow=char-video4linux
+DevicePolicy=closed
+
+[Install]
+WantedBy=multi-user.target
