@@ -18,7 +18,9 @@ if ((${#missing[@]})); then
   echo "  yay -S v4l2-relayd" >&2
   exit 1
 fi
-if ! lsmod | grep -q '^ov5693'; then
+# Not `lsmod | grep -q`: with pipefail, grep exiting early can make lsmod
+# fail with SIGPIPE and the check fail although the module is loaded.
+if [[ ! -d /sys/module/ov5693 ]]; then
   echo "The front camera's sensor driver (ov5693) isn't loaded." >&2
   echo "This was tested on the linux-surface kernel; check that your kernel has" >&2
   echo "the IPU3 and ov5693 drivers and that 'cam -l' lists the front camera." >&2
@@ -33,7 +35,9 @@ install -Dm644 surface-webcam.service /etc/systemd/system/surface-webcam.service
 modprobe -r v4l2loopback 2>/dev/null || true
 modprobe v4l2loopback
 systemctl daemon-reload
-systemctl enable --now surface-webcam.service
+systemctl enable surface-webcam.service
+# restart, not just --now: an already running relay keeps its old command
+systemctl restart surface-webcam.service
 
 echo
 echo "Virtual webcam: /dev/video20 ($(cat /sys/devices/virtual/video4linux/video20/name 2>/dev/null))"

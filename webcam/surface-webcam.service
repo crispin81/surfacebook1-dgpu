@@ -7,8 +7,14 @@ After=modprobe@v4l2loopback.service systemd-logind.service
 Type=simple
 # The camera ID starts with a backslash: systemd turns \\\\ into \\, which
 # GStreamer's parser turns into \.
+# -s: while no app has the camera open, keep feeding black frames. With
+# exclusive_caps the device is only listed as a camera while frames are
+# being written; v4l2-relayd's default splash sends just two, so the camera
+# vanished from apps' lists after the first one closed it (~2% of a core).
+# (A caps filter must sit between elements, hence capsfilter at the end.)
 ExecStart=/usr/bin/v4l2-relayd \
   -i "libcamerasrc camera-name=\\\\_SB_.PCI0.I2C2.CAMF ! video/x-raw,format=NV12,width=1280,height=720,framerate=30/1 ! videoconvert" \
+  -s "videotestsrc pattern=black is-live=true ! capsfilter caps=video/x-raw,format=YUY2,width=1280,height=720,framerate=30/1" \
   -o "appsrc name=appsrc caps=video/x-raw,format=YUY2,width=1280,height=720,framerate=30/1 ! videoconvert ! v4l2sink name=v4l2sink device=/dev/video20"
 Restart=always
 RestartSec=2

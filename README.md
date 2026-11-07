@@ -168,7 +168,9 @@ Front Camera"** (`/dev/video20`, YUYV 4:2:2, 1280x720 at 30 fps), with
 [v4l2-relayd](https://gitlab.com/vicamo/v4l2-relayd) feeding a v4l2loopback
 device from libcamera. It runs **on demand**: the real camera, and its light,
 switch on only while an app has the virtual camera open. The first second or
-two after an app opens it is blank or green while the camera starts.
+two after an app opens it is blank or green while the camera starts. While
+no app has it open, the relay feeds black frames so the device stays listed
+as a camera (about 2% of one CPU core).
 
 Tested on the linux-surface kernel (7.2.11), which has all three camera
 drivers (`ov5693` front, `ov8865` rear, `ov7251` infrared).
